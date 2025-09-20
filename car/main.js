@@ -4,9 +4,9 @@ import RAPIER, { World } from "@dimforge/rapier3d-compat";
 import { DynamicRayCastVehicleController } from "@dimforge/rapier3d-compat";
 
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls"; //
-// import { fill } from "three/src/extras/TextureUtils.js";
-// import { Wireframe } from "three/examples/jsm/Addons.js";
-// import { deltaTime } from "three/tsl";
+import { fill } from "three/src/extras/TextureUtils.js";
+import { Wireframe } from "three/examples/jsm/Addons.js";
+import { deltaTime } from "three/tsl";
 // Scene, Camera, Renderer
 
 const keyState = {
@@ -15,11 +15,6 @@ const keyState = {
   left: false,
   right: false,
   brake: false,
-};
-
-const spawn = {
-  position: new THREE.Vector3(0, 2, 0),
-  rotation: new THREE.Euler(0, -Math.PI / 2, 0),
 };
 
 window.addEventListener("keydown", (e) => {
@@ -75,14 +70,14 @@ const wheelInfo = {
   suspensionRestLength: 0.125,
   suspensionStiffness: 24,
   maxSuspensionTravel: 1,
-  radius: 0.3,
+  radius: 0.5,
 };
 
 const wheels = [
-  { position: new THREE.Vector3(-0.75, -0.25, -0.5), ...wheelInfo }, // front-left
-  { position: new THREE.Vector3(-0.75, -0.25, 0.5), ...wheelInfo }, // front-right
-  { position: new THREE.Vector3(0.75, -0.25, -0.5), ...wheelInfo }, // rear-right
-  { position: new THREE.Vector3(0.75, -0.25, 0.5), ...wheelInfo }, // rear-left
+  { position: new THREE.Vector3(-0.5, -0.25, -0.75), ...wheelInfo }, // front-left
+  { position: new THREE.Vector3(0.5, -0.25, -0.75), ...wheelInfo }, // front-right
+  { position: new THREE.Vector3(0.5, -0.25, 0.75), ...wheelInfo }, // rear-right
+  { position: new THREE.Vector3(-0.75, -0.25, 0.75), ...wheelInfo }, // rear-left
 ];
 
 // Example: Use keyState in your animation loop to control the vehicle
@@ -143,20 +138,13 @@ scene.add(cubeMesh);
 
 //CAR Mesh
 
-const carGeo = new THREE.BoxGeometry(2, 0.5, 1);
-
 const carMehs = new THREE.Mesh(
-  carGeo,
+  new THREE.BoxGeometry(1, 0.5, 2),
   new THREE.MeshStandardMaterial({ color: 0xff0000, wireframe: true })
 );
 
-const rotation = new THREE.Quaternion().setFromEuler(spawn.rotation);
-
 const carBody = world.createRigidBody(
-  RAPIER.RigidBodyDesc.dynamic()
-    .setTranslation(spawn.position.x, spawn.position.y, spawn.position.z)
-    .setRotation({ w: rotation.w, x: rotation.x, y: rotation.y, z: rotation.z })
-    .setCanSleep(false)
+  RAPIER.RigidBodyDesc.dynamic().setTranslation(0, 2, 0).setCanSleep(false)
 );
 
 //Wheels
@@ -176,14 +164,8 @@ wheels.forEach((wheel) => {
 });
 
 wheels.forEach((wheel, index) => {
-  vehicleController.setWheelSuspensionStiffness(
-    index,
-    wheel.suspensionStiffness
-  );
-  vehicleController.setWheelMaxSuspensionTravel(
-    index,
-    wheel.maxSuspensionTravel
-  );
+  vehicleController.setWheelSuspensionStiffness(index, wheel.suspensionStiffness);
+  vehicleController.setWheelMaxSuspensionTravel(index, wheel.maxSuspensionTravel);
 
   vehicleController.setWheelFrictionSlip(index, 1000);
 });
@@ -191,9 +173,9 @@ wheels.forEach((wheel, index) => {
 const wheelMeshes = [];
 
 for (let i = 0; i < wheels.length; i++) {
-  const wheelgeo = new THREE.CylinderGeometry(0.3, 0.3, 0.3, 10);
+  const wheelgeo = new THREE.CylinderGeometry(0.3, 0.3, 0.3, 8);
 
-  wheelgeo.rotateX(-Math.PI * 0.5);
+  wheelgeo.rotateZ(Math.PI * 0.5);
 
   const wheelMesh = new THREE.Mesh(
     wheelgeo,
@@ -212,7 +194,7 @@ function addWheel() {
   vehicleController.addWheel();
 }
 
-const carCollider = RAPIER.ColliderDesc.cuboid(1, 0.25, 0.5).setMass(30);
+const carCollider = RAPIER.ColliderDesc.cuboid(0.5, 0.25, 1).setMass(30);
 
 world.createCollider(carCollider, carBody);
 
@@ -254,21 +236,18 @@ const clock = new THREE.Clock();
 let delta;
 
 const updateWheel = () => {
-  if (typeof vehicleController === "undefined") return;
+  if (typeof vehicleController === 'undefined') return;
 
   wheelMeshes?.forEach((wheel, index) => {
     if (!wheel) return;
 
     const wheelAxleCs = vehicleController.wheelAxleCs(index);
-    const connection =
-      vehicleController.wheelChassisConnectionPointCs(index)?.y || 0;
+    const connection = vehicleController.wheelChassisConnectionPointCs(index)?.y || 0;
     const suspension = vehicleController.wheelSuspensionLength(index) || 0;
     const steering = vehicleController.wheelSteering(index) || 0;
     const rotationRad = vehicleController.wheelRotation(index) || 0;
 
-    const localPos = wheels[index].position.clone();
-    localPos.y = connection - suspension; // vertical position based on suspension
-    wheel.position.copy(localPos);
+    wheel.position.y = connection - suspension;
 
     _wheelSteeringQuat.setFromAxisAngle(up, steering);
     _wheelRotationQuat.setFromAxisAngle(wheelAxleCs, rotationRad);
@@ -344,7 +323,7 @@ function animate() {
   world.timestep = Math.min(delta, 0.1);
   world.step();
 
-  if (typeof vehicleController !== "undefined") {
+  if (typeof vehicleController !== 'undefined') {
     updatevehicle();
     vehicleController.updateVehicle(delta);
     updateWheel();
